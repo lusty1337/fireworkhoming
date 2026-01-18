@@ -1,45 +1,53 @@
 package com.example.fireworkhoming.homing;
 
-import net.minecraft.world.entity.Entity;
+import com.example.fireworkhoming.config.HomingConfig;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.animal.Animal;
+import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.FireworkRocketEntity;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.Vec3;
 
 import java.util.List;
 
 public class TargetFinder {
 
-    private static final double MAX_DISTANCE = 30.0;
-    private static final double MAX_ANGLE = Math.toRadians(20); // 20 градусов
+    private static final double SEARCH_RADIUS = 16.0; // радиус поиска целей
 
-    public static LivingEntity findTarget(Player player) {
-        Vec3 eyePos = player.getEyePosition();
-        Vec3 look = player.getLookAngle().normalize();
+    public static LivingEntity findTarget(FireworkRocketEntity firework) {
+        Level world = firework.level();
+        if (world == null) return null;
 
-        AABB box = player.getBoundingBox()
-                .expandTowards(look.scale(MAX_DISTANCE))
-                .inflate(3);
+        // область поиска вокруг ракеты
+        AABB searchBox = firework.getBoundingBox().inflate(SEARCH_RADIUS);
 
-        List<Entity> entities = player.level().getEntities(player, box);
+        List<LivingEntity> entities = world.getEntitiesOfClass(LivingEntity.class, searchBox, e -> e.isAlive());
 
-        LivingEntity bestTarget = null;
-        double bestAngle = MAX_ANGLE;
+        LivingEntity closest = null;
+        double closestDistance = Double.MAX_VALUE;
 
-        for (Entity entity : entities) {
-            if (!(entity instanceof LivingEntity living)) continue;
-            if (living == player) continue;
-            if (!living.isAlive()) continue;
+        for (LivingEntity entity : entities) {
+            if (entity == firework.getOwner()) continue; // не атаковать владельца
 
-            Vec3 toEntity = living.getEyePosition().subtract(eyePos).normalize();
-            double angle = Math.acos(look.dot(toEntity));
+            if (!isValidTarget(entity)) continue; // проверка по конфигу
 
-            if (angle < bestAngle) {
-                bestAngle = angle;
-                bestTarget = living;
+            double distance = firework.position().distanceToSqr(entity.position());
+            if (distance < closestDistance) {
+                closestDistance = distance;
+                closest = entity;
             }
         }
 
-        return bestTarget;
+        return closest;
+    }
+
+    // проверка типа цели по конфигу
+    private static boolean isValidTarget(LivingEntity entity) {
+        if (entity instanceof Player && HomingConfig.allowPlayers()) return true;
+        if (entity instanceof Monster && HomingConfig.allowHostile()) return true;
+        if (entity instanceof Animal && HomingConfig.allowPassive()) return true;
+
+        return false;
     }
 }
