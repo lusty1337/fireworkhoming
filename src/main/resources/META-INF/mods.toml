@@ -1,0 +1,12 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="MIT"
+
+[[mods]]
+modId="fireworkhoming"
+version="1.0.0"
+displayName="Firework Homing"
+authors="lusty1337"
+description='''
+Homing fireworks fired from a crossbow.
+'''
